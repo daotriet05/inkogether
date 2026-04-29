@@ -1,122 +1,182 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
+import { io } from 'socket.io-client';
+import WelcomeScreen from './screens/WelcomeScreen';
+import LobbyScreen from './screens/LobbyScreen';
+// import PromptScreen from './screens/PromptScreen';
+// import DrawScreen from './screens/DrawScreen';
+// import GuessScreen from './screens/GuessScreen';
+// import SummaryScreen from './screens/SummaryScreen';
+// import EndScreen from './screens/EndScreen';
 
-function App() {
-  const [count, setCount] = useState(0)
+// ── Contexts ──────────────────────────────────────────────────────────────────
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+const GameContext = createContext(null);
+const SocketContext = createContext(null);
 
-      <div className="ticks"></div>
+export const useGame = () => useContext(GameContext);
+export const useSocket = () => useContext(SocketContext);
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+// ── State ─────────────────────────────────────────────────────────────────────
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+const initialState = {
+  phase: 'welcome',
+  roomCode: null,
+  myId: null,
+  players: [],
+  prompt: null,
+  opponentStrokes: [],
+  guesses: [],
+  summaryData: null,
+  timer: null,
+  messages: [],
+  error: null,
+};
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'ROOM_CREATED':
+    case 'ROOM_JOINED':
+      return {
+        ...initialState,
+        phase: 'lobby',
+        roomCode: action.roomCode,
+        myId: action.myId,
+        players: action.players,
+      };
+
+    case 'ROOM_UPDATE': {
+      const next = { ...state, phase: action.phase, players: action.players };
+      if (action.phase === 'lobby' && state.phase !== 'lobby') {
+        return { ...next, prompt: null, opponentStrokes: [], guesses: [], summaryData: null, timer: null, messages: [] };
+      }
+      return next;
+    }
+
+    case 'PROMPT_REVEAL':
+      return { ...state, prompt: action.prompt };
+
+    case 'OPPONENT_DRAWING':
+      return { ...state, opponentStrokes: action.strokes };
+
+    case 'GUESS_RESULT':
+      return { ...state, guesses: [...state.guesses, action.guess] };
+
+    case 'SUMMARY_DATA':
+      return { ...state, summaryData: action.data };
+
+    case 'PHASE_TIMER':
+      return { ...state, timer: action.secondsLeft };
+
+    case 'MESSAGE':
+      return { ...state, messages: [...state.messages, action.msg] };
+
+    case 'ERROR':
+      return { ...state, error: action.message };
+
+    case 'CLEAR_ERROR':
+      return { ...state, error: null };
+
+    case 'ROOM_ENDED':
+      return { ...initialState };
+
+    default:
+      return state;
+  }
 }
 
-export default App
+// ── App ───────────────────────────────────────────────────────────────────────
+
+export default function App() {
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  const socket = useMemo(() => io('http://localhost:3000'), []);
+
+  useEffect(() => {
+    socket.on('room_created', ({ roomCode, myId, players }) => {
+      dispatch({ type: 'ROOM_CREATED', roomCode, myId, players });
+    });
+
+    socket.on('room_joined', ({ roomCode, myId, players }) => {
+      dispatch({ type: 'ROOM_JOINED', roomCode, myId, players });
+    });
+
+    socket.on('room_update', ({ phase, players }) => {
+      dispatch({ type: 'ROOM_UPDATE', phase, players });
+    });
+
+    socket.on('prompt_reveal', ({ prompt }) => {
+      dispatch({ type: 'PROMPT_REVEAL', prompt });
+    });
+
+    socket.on('opponent_drawing', ({ strokes }) => {
+      dispatch({ type: 'OPPONENT_DRAWING', strokes });
+    });
+
+    socket.on('guess_result', (guess) => {
+      dispatch({ type: 'GUESS_RESULT', guess });
+    });
+
+    socket.on('guess_matched', ({ team, who }) => {
+      const teamName = team === 'A' ? 'Team Coral' : 'Team Sky';
+      dispatch({
+        type: 'MESSAGE',
+        msg: { scope: 'system', msg: `✓ ${who} (${teamName}) guessed it!` },
+      });
+    });
+
+    socket.on('summary_data', (data) => {
+      dispatch({ type: 'SUMMARY_DATA', data });
+    });
+
+    socket.on('phase_timer', ({ secondsLeft }) => {
+      dispatch({ type: 'PHASE_TIMER', secondsLeft });
+    });
+
+    socket.on('message', (msg) => {
+      dispatch({ type: 'MESSAGE', msg });
+    });
+
+    socket.on('player_left', ({ name }) => {
+      dispatch({ type: 'MESSAGE', msg: { scope: 'system', msg: `${name} left the room` } });
+    });
+
+    socket.on('became_host', () => {
+      dispatch({ type: 'MESSAGE', msg: { scope: 'system', msg: 'You are now the host' } });
+    });
+
+    socket.on('room_ended', () => {
+      dispatch({ type: 'ROOM_ENDED' });
+    });
+
+    socket.on('error', ({ message }) => {
+      dispatch({ type: 'ERROR', message });
+      setTimeout(() => dispatch({ type: 'CLEAR_ERROR' }), 4000);
+    });
+
+    return () => socket.removeAllListeners();
+  }, [socket]);
+
+  const emit = useCallback((event, data) => {
+    socket.emit(event, data);
+  }, [socket]);
+
+  const screen = () => {
+    switch (state.phase) {
+      case 'lobby':   return <LobbyScreen />;
+      // case 'prompt':  return <PromptScreen />;
+      // case 'draw':    return <DrawScreen />;
+      // case 'guess':   return <GuessScreen />;
+      // case 'summary': return <SummaryScreen />;
+      // case 'end':     return <EndScreen />;
+      default:        return <WelcomeScreen />;
+    }
+  };
+
+  return (
+    <SocketContext.Provider value={socket}>
+      <GameContext.Provider value={{ state, emit, dispatch }}>
+        {screen()}
+      </GameContext.Provider>
+    </SocketContext.Provider>
+  );
+}
