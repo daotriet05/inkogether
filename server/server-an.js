@@ -134,7 +134,16 @@ function startGuessPhase(room) {
   room.phase = 'guess';
   clearRoomTimer(room);
 
-  //...
+  const allPlayers = roomPlayers(room);
+  const teamA = allPlayers.filter(p => p.team === 'A');
+  const teamB = allPlayers.filter(p => p.team === 'B');
+
+  // Send opponent strokes before phase broadcast so client has data when screen mounts
+  for (const p of teamA) io.to(p.id).emit('opponent_drawing', { strokes: room.strokes.B });
+  for (const p of teamB) io.to(p.id).emit('opponent_drawing', { strokes: room.strokes.A });
+
+  broadcastRoom(room);
+  startCountdown(room, GUESS_SECONDS, () => startSummaryPhase(room));
 }
 
 function startSummaryPhase(room) {
@@ -280,7 +289,15 @@ io.on('connection', (socket) => {
   });
 
   socket.on('draw', ({ x0, y0, x1, y1, color, size, tool }) => {
-    //...
+    const room = getRoom();
+    const player = getPlayer();
+    if (!room || !player || room.phase !== 'draw' || !player.team) return;
+
+    const stroke = { x0, y0, x1, y1, color, size, tool };
+    room.strokes[player.team].push(stroke);
+
+    // Broadcast to teammates only (not sender)
+    socket.to(`room:${room.code}:${player.team}`).emit('draw', stroke);
   });
 
   socket.on('send_message', ({ text, scope }) => {
@@ -298,12 +315,34 @@ io.on('connection', (socket) => {
   });
 
   socket.on('submit_guess', ({ text }) => {
-    //....
+    const room = getRoom();
+    const player = getPlayer();
+    if (!room || !player || room.phase !== 'guess' || !player.team || !text?.trim()) return;
+
+    // Team A guesses Team B's prompt, and vice versa
+    const targetTeam = player.team === 'A' ? 'B' : 'A';
+    const correctPrompt = room.prompts[targetTeam];
+
+    const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+    const isMatch = normalize(text.trim()) === normalize(correctPrompt);
+
+    const guess = { who: player.name, msg: text.trim(), match: isMatch };
+    room.guesses[player.team].push(guess);
+
+    // Broadcast to the guessing team so all teammates see live guesses
+    io.to(`room:${room.code}:${player.team}`).emit('guess_result', guess);
+
+    if (isMatch) {
+      io.to(`room:${room.code}`).emit('guess_matched', { team: player.team, who: player.name });
+    }
   });
 
   socket.on('advance_summary', () => {
     // Host triggers end after summary animation completes
-    
+    const room = getRoom();
+    const player = getPlayer();
+    if (!room || !player || !player.isHost || room.phase !== 'summary') return;
+    startEndPhase(room);
   });
 
   socket.on('play_again', () => {
