@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
+import { createContext, useCallback, useContext, useEffect, useReducer } from 'react';
 import { io } from 'socket.io-client';
 import WelcomeScreen from './screens/WelcomeScreen';
 import LobbyScreen from './screens/LobbyScreen';
@@ -7,6 +7,8 @@ import LobbyScreen from './screens/LobbyScreen';
 // import GuessScreen from './screens/GuessScreen';
 // import SummaryScreen from './screens/SummaryScreen';
 // import EndScreen from './screens/EndScreen';
+
+const socket = io('http://localhost:3000');
 
 // ── Contexts ──────────────────────────────────────────────────────────────────
 
@@ -89,8 +91,6 @@ function reducer(state, action) {
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const socket = useMemo(() => io('http://localhost:3000'), []);
-
   useEffect(() => {
     socket.on('room_created', ({ roomCode, myId, players }) => {
       dispatch({ type: 'ROOM_CREATED', roomCode, myId, players });
@@ -154,11 +154,11 @@ export default function App() {
     });
 
     return () => socket.removeAllListeners();
-  }, [socket]);
+  }, []);
 
   const emit = useCallback((event, data) => {
     socket.emit(event, data);
-  }, [socket]);
+  }, []);
 
   const screen = () => {
     switch (state.phase) {
