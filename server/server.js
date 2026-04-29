@@ -12,22 +12,22 @@ const io = new Server(httpServer, {
   },
 }); 
 
-app.post("/api/room", (req, res)=>{
-  const roomId = randomBytes(4).toString('hex');
+// app.post("/api/room", (req, res)=>{
+//   const roomId = randomBytes(4).toString('hex');
 
-  // initialize room data in one Map entry
-  roomData.set(roomId, {
-    status: "waiting",
-    participants: new Map(),
-    messages: []
-  });
+//   // initialize room data in one Map entry
+//   roomData.set(roomId, {
+//     status: "lobby",
+//     participants: new Map(),
+//     messages: []
+//   });
   
 
-  return res.status(201).json({
-    message: "created a new room successfully", 
-    roomId
-  })
-})
+//   return res.status(201).json({
+//     message: "created a new room successfully", 
+//     roomId
+//   })
+// })
 
 app.get("/api/room/:roomId", (req, res)=>{
   const roomId = req.params.roomId;
@@ -60,10 +60,54 @@ io.on("connection", (socket) => {
   let socketUserObject = {};
   let socketRoomId = null;
 
+  // CREATE A ROOM
+  socket.on("room:create", (userObject) =>{
+    // check if the user is not in a room
+    if (socketRoomId)
+      return
+
+    // setup user information
+    socketUserObject = {
+      ...userObject,
+      teamId: 1,
+      isHost: true,
+      isReady: false,
+    }
+    console.log(`setup account ${socket.id} with nickname ${socketUserObject.nickname} and avatar ${socketUserObject.avatarId}`);
+
+    // create a new room
+    const roomId = randomBytes(4).toString('hex');
+    socketRoomId =  roomId
+
+    // initialize room data in one Map entry
+    roomData.set(roomId, {
+      status: "lobby",
+      participants: new Map(),
+      messages: []
+    });
+    
+    // join the room channel
+    socket.join(`room-${socketRoomId}`);
+    roomData.get(roomId).participants.set(socket.id,socketUserObject);
+    
+    // notify that the room created
+    io.to(`room-${socketRoomId}`).emit("room:created", {
+      roomId: socketRoomId, 
+      roomHostId: socket.id
+    });
+
+    // join the team channel
+    socket.join(`room-${socketRoomId}-team-${socketUserObject.teamId}`)
+
+    // log
+    console.log(`user ${socket.id} created the room ${roomId}`);
+    
+  })
+
   // JOIN A ROOM
   socket.on("room:join", (userObject, roomId)=>{
     // check if the room allow to join
-    if (!roomData.get(roomId) || roomData.get(roomId).status=='started') {
+    if (!roomData.get(roomId) || !roomData.get(roomId).status=='lobby') {
       console.log(`user ${socket.id} cannot join the room ${roomId}`);
       
       return
@@ -72,7 +116,9 @@ io.on("connection", (socket) => {
     // setup user information
     socketUserObject = {
       ...userObject,
-      teamId: 1
+      teamId: 1,
+      isHost: false,
+      isReady: false,
     }
     console.log(`setup account ${socket.id} with nickname ${socketUserObject.nickname} and avatar ${socketUserObject.avatarId}`);
 
@@ -95,7 +141,7 @@ io.on("connection", (socket) => {
   })
 
 
-
+  // SWITCH TEAM (1 to 2, or vice versa)
   socket.on("team:toggle", () => {
     if (!roomData.get(socketRoomId).participants.has(socket.id)) 
       return;
@@ -122,9 +168,15 @@ io.on("connection", (socket) => {
   socket.on("message-lobby:send", (messageObject) => {
     
     // forward the message
-    io.to(`room-${socketRoomId}`).emit("message-lobby:new",{
+    const newMessageObject = {
       userId: socket.id,
-      ...messageObject
+      ...messageObject,
+    };
+
+    roomData.get(socketRoomId).messages.push(newMessageObject);
+
+    io.to(`room-${socketRoomId}`).emit("message-lobby:new",{
+      ...newMessageObject
     })
 
     // log
@@ -144,7 +196,11 @@ io.on("connection", (socket) => {
     
   })
 
-  
+  // get ready
+  socket.on("game:ready", ()=>{})
+
+  // get started
+  socket.on("game:start", ()=>{})
 
   socket.on("disconnect", ()=>{
     console.log("disconnected: "+socket.id);
