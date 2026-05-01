@@ -22,6 +22,7 @@ export default function WelcomeScreen() {
       const res = await fetch(`http://localhost:3000/api/room/${roomCode}`);
       if (!res.ok) {
         dispatch({ type: 'ERROR', message: 'room not found or game in progress' });
+        setTimeout(() => dispatch({ type: 'CLEAR_ERROR' }), 4000);
         return;
       }
       const data = await res.json();
@@ -30,6 +31,7 @@ export default function WelcomeScreen() {
       emit('room:join', { nickname: name.trim(), avatarId: 'fixed-avatar' }, roomCode);
     } catch (err) {
       dispatch({ type: 'ERROR', message: 'failed to connect to server' });
+      setTimeout(() => dispatch({ type: 'CLEAR_ERROR' }), 4000);
     }
   };
 
