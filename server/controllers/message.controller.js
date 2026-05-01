@@ -4,8 +4,10 @@ import { roomData } from "../data/store.js";
 export function handleMessageLobby(io, userId, socketRoomId, messageObject){
   if (!socketRoomId) return;
 
-  const newMessageObject = { userId, ...messageObject };
   const room = roomData.get(socketRoomId);
+  const user = room.participants.get(userId);
+
+  const newMessageObject = { userId, nickname: user?.nickname || userId, ...messageObject };
 
   // add the new message to the data
   room.messages_lobby.push(newMessageObject);
@@ -21,9 +23,15 @@ export function handleMessageLobby(io, userId, socketRoomId, messageObject){
 export function handleMessageTeam(io, userId, socketRoomId, messageObject){
   if (!socketRoomId) return;
 
-  const socketTeamId = roomData.get(socketRoomId).participants.get(userId).teamId;
-  const newMessageObject = { userId, ...messageObject };
-  const room = roomData.get(socketRoomId)
+  const room = roomData.get(socketRoomId);
+  const user = room.participants.get(userId);
+  const socketTeamId = user.teamId;
+
+  const newMessageObject = { 
+    userId, 
+    nickname: user?.nickname || userId,
+    ...messageObject 
+  };
 
   // add the new message to the data
   room.message_teams[socketTeamId].push(newMessageObject)
