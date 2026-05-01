@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
 import { 
@@ -24,6 +25,7 @@ import {
 import { roomData } from "./data/store.js";
 
 const app = express();
+app.use(cors());
 const httpServer = createServer(app);
 
 export const io = new Server(httpServer, {
