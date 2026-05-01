@@ -58,7 +58,7 @@ function TeamPanel({ team, players, myPlayer, onJoin }) {
           className="btn btn-sm"
           style={{ marginTop: 14, width: '100%', borderColor: cfg.accent }}
           onClick={() => onJoin(team)}
-          disabled={players.length >= 5}
+          // disabled={players.length >= 5}
         >
           Join {cfg.name}
         </button>
@@ -88,57 +88,29 @@ export default function LobbyScreen() {
       <TopBar roomCode={roomCode} players={players} myId={myId} />
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* ── Main content ── */}
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 32,
-            gap: 24,
-            overflow: 'auto',
-          }}
-        >
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, gap: 24, overflow: 'auto' }}>
           <h2 className="h-display" style={{ fontSize: 28 }}>Pick your team</h2>
 
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <TeamPanel
-              team="A"
-              players={teamA}
-              myPlayer={myPlayer}
-              onJoin={(t) => emit('join_team', { team: t })}
-            />
-            <TeamPanel
-              team="B"
-              players={teamB}
-              myPlayer={myPlayer}
-              onJoin={(t) => emit('join_team', { team: t })}
-            />
+            <TeamPanel team="A" players={teamA} myPlayer={myPlayer} onJoin={() => emit('room:team_toggle')} />
+            <TeamPanel team="B" players={teamB} myPlayer={myPlayer} onJoin={() => emit('room:team_toggle')} />
           </div>
 
           {nonHostWithTeam.length > 0 && (
-            <p className="muted" style={{ fontSize: 13 }}>
-              {readyCount}/{nonHostWithTeam.length} ready
-            </p>
+            <p className="muted" style={{ fontSize: 13 }}>{readyCount}/{nonHostWithTeam.length} ready</p>
           )}
 
           {myPlayer?.team && !myPlayer.isHost && (
             <button
               className={`btn ${myPlayer.ready ? 'btn-primary' : ''}`}
-              onClick={() => emit('player_ready', { ready: !myPlayer.ready })}
+              onClick={() => emit('room:ready_toggle')}
             >
               {myPlayer.ready ? '✓ Ready!' : 'Mark ready'}
             </button>
           )}
 
           {isHost && (
-            <button
-              className="btn btn-primary btn-lg"
-              onClick={() => emit('start_game')}
-              disabled={!canStart}
-            >
+            <button className="btn btn-primary btn-lg" onClick={() => emit('game:start')} disabled={!canStart}>
               Start game
             </button>
           )}
@@ -154,12 +126,11 @@ export default function LobbyScreen() {
           {error && <div className="error-banner">{error}</div>}
         </div>
 
-        {/* ── Global chat ── */}
         <div style={{ width: 280, padding: 12, flexShrink: 0 }}>
           <ChatPanel
             title="Room chat"
             messages={globalMessages}
-            onSend={(text) => emit('send_message', { text, scope: 'global' })}
+            onSend={(text) => emit('message-lobby:send', { content: text })}
           />
         </div>
       </div>

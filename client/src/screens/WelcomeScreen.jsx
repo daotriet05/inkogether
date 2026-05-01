@@ -1,30 +1,43 @@
 import { useState } from 'react';
-import { useGame } from '../App';
+import { useGame, useSocket } from '../App';
 import { ArrowRight, Plus } from '../components/Icons';
 
 export default function WelcomeScreen() {
-  const { emit, state } = useGame();
-  const [mode, setMode] = useState(null); // null | 'create' | 'join'
+  const { emit, state, dispatch } = useGame();
+  const socket = useSocket();
+  const [mode, setMode] = useState(null);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
 
   const create = (e) => {
     e.preventDefault();
-    emit('create_room', { name: name.trim() });
+    emit('room:create', { nickname: name.trim(), avatarId: 'fixed-avatar' });
   };
 
-  const join = (e) => {
+  const join = async (e) => {
     e.preventDefault();
-    emit('join_room', { code: code.trim().toUpperCase(), name: name.trim() });
+    const roomCode = code.trim();
+    
+    try {
+      const res = await fetch(`http://localhost:3000/api/room/${roomCode}`);
+      if (!res.ok) {
+        dispatch({ type: 'ERROR', message: 'room not found or game in progress' });
+        return;
+      }
+      const data = await res.json();
+      dispatch({ type: 'HYDRATE_ROOM', data });
+      dispatch({ type: 'SET_MY_ID', myId: socket.id });
+      emit('room:join', { nickname: name.trim(), avatarId: 'fixed-avatar' }, roomCode);
+    } catch (err) {
+      dispatch({ type: 'ERROR', message: 'failed to connect to server' });
+    }
   };
 
   return (
     <div className="screen screen-enter" style={{ gap: 28 }}>
       <div style={{ textAlign: 'center' }}>
         <h1 className="h-display" style={{ fontSize: 56 }}>inkogether</h1>
-        <p className="muted" style={{ marginTop: 8 }}>
-          Draw. Swap. Guess.
-        </p>
+        <p className="muted" style={{ marginTop: 8 }}>Draw. Swap. Guess.</p>
       </div>
 
       {!mode && (
@@ -54,7 +67,7 @@ export default function WelcomeScreen() {
               className="input"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="e.g. Alex"
+              placeholder="e.g. ann"
               maxLength={24}
               autoFocus
             />
@@ -66,9 +79,9 @@ export default function WelcomeScreen() {
               <input
                 className="input mono"
                 value={code}
-                onChange={e => setCode(e.target.value.toUpperCase())}
-                placeholder="XXXXXX"
-                maxLength={6}
+                onChange={e => setCode(e.target.value)}
+                placeholder="XXXXXXXX"
+                maxLength={8}
                 style={{ letterSpacing: '0.15em' }}
               />
             </div>
@@ -85,7 +98,7 @@ export default function WelcomeScreen() {
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={!name.trim() || (mode === 'join' && code.length < 6)}
+              disabled={!name.trim() || (mode === 'join' && code.length < 8)}
             >
               {mode === 'create' ? 'Create' : 'Join'} <ArrowRight size={16} />
             </button>
