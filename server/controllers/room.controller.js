@@ -227,7 +227,8 @@ export function handleDisconnect(io, userId, socketRoomId){
       });
     } else {
       // this means this player is the last player in the room
-      roomData.delete(roomId);
+      roomData.delete(socketRoomId);
+      console.log(`room ${socketRoomId} deleted because the last player left`);
       return
     }
   }
