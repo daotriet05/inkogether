@@ -42,7 +42,7 @@ function TeamPanel({ team, players, myPlayer, onJoin }) {
         <span style={{ fontSize: 24 }}>{cfg.emoji}</span>
         <span className="h-display" style={{ fontSize: 18 }}>{cfg.name}</span>
         <span className="muted" style={{ fontSize: 13, marginLeft: 'auto' }}>
-          {players.length}/5
+          {players.length}
         </span>
       </div>
 
