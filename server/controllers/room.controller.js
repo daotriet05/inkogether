@@ -65,7 +65,8 @@ export function handleCreateRoom(io, socket, userObject){
   // notify that the room created
   io.to(`room-${roomId}`).emit("room:created", {
     roomId,
-    roomHostId: socket.id
+    roomHostId: socket.id,
+    host: { userId: socket.id, ...socketUserObject }
   });
 
   // log
@@ -76,9 +77,14 @@ export function handleCreateRoom(io, socket, userObject){
 
 // JOIN ROOM
 export function handleJoinRoom(io, socket, userObject, roomId){
+  const room = roomData.get(roomId);
   // check if the room allows to join
-  if (!roomData.get(roomId) || roomData.get(roomId).phase !== 'LOBBY'){
-    console.log(`user ${socket.id} cannot join the room ${roomId}`);
+  if (!room) {
+    socket.emit("error", { message: "Room not found." });
+    return null;
+  }
+  if (room.phase !== 'LOBBY') {
+    socket.emit("error", { message: "Game already in progress." });
     return null;
   }
 

@@ -7,8 +7,8 @@ const PROMPTS = [
   'a bird'
 ]
 
-const DRAW_PHASE_SECONDS = 10;
-const GUESS_PHASE_SECONDS = 10;
+const DRAW_PHASE_SECONDS = 20;
+const GUESS_PHASE_SECONDS = 20;
 //const BEFORE_SUMMARY_PHASE_SECONDS = 30; // need a gap between GUESS_PHASE and SUMMARY_PHASE to finish all matching check by AI 
 
 
@@ -41,9 +41,10 @@ export async function handleGameStart(io, userId, roomId){
   }
 
   // check if the phase is lobby
-  if (room.phase !== "LOBBY")
+  if (room.phase !== "LOBBY"){
+    io.to(userId).emit("error", { message: "The game is not in the lobby phase." });
     return;
-
+  }
   // check if all non-host players are ready and have a team
   const participants = Array.from(room.participants.values());
   const nonHostPlayers = participants.filter(p => !p.isHost);
@@ -154,6 +155,7 @@ async function compareText(guess, prompts){
 export async function handleGuess(io, userId, roomId, guess){
   const room = roomData.get(roomId)
   const teamId = roomData.get(roomId).participants.get(userId).teamId;
+  const user = room.participants.get(userId);
   const oppositeTeamId = (teamId=='A') ? 'B' : 'A';
 
   // compare to the prompts
@@ -164,7 +166,9 @@ export async function handleGuess(io, userId, roomId, guess){
   const guessObject = {
     guess,
     matching: result,
-    id: guessId
+    id: guessId,
+    userId: userId,
+    nickname: user.nickname
   }
   
   // update data
