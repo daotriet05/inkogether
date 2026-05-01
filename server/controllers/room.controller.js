@@ -225,6 +225,10 @@ export function handleDisconnect(io, userId, socketRoomId){
         userId: nextHostId,
         ...nextHostUserObject
       });
+    } else {
+      // this means this player is the last player in the room
+      roomData.delete(roomId);
+      return
     }
   }
 
