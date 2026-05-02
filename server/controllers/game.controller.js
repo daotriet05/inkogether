@@ -1,17 +1,20 @@
 import { roomData } from "../data/store.js";
-
+import { GoogleGenerativeAI } from "@google/generative-ai";
+/*
 const PROMPTS = [
   'a cat',
   'a cow',
   'a dog',
   'a bird'
 ]
+*/
 
 const DRAW_PHASE_SECONDS = 20;
 const GUESS_PHASE_SECONDS = 20;
 //const BEFORE_SUMMARY_PHASE_SECONDS = 30; // need a gap between GUESS_PHASE and SUMMARY_PHASE to finish all matching check by AI 
 
-
+const _genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); // init AI model
+const _compareCache = new Map(); // handle same pairs
 
 async function countDown(io, roomId, phase, duration){
   io.to(`room-${roomId}`).emit("game:countdown", phase, "START")
@@ -28,9 +31,27 @@ async function countDown(io, roomId, phase, duration){
   return;
 }
 
-function pickTwoPrompts(){
-  const shuffled = [...PROMPTS].sort(() => Math.random() - 0.5);
-  return { A: shuffled[0], B: shuffled[1] };
+async function pickTwoPrompts() {
+  const model = _genAI.getGenerativeModel({
+    model: "gemini-2.0-flash-lite",
+    generationConfig: { responseMimeType: "application/json", temperature: 0.8 }
+  });
+
+  try {
+    const result = await model.generateContent(`
+      Generate 2 simple drawing prompts for a game. 
+      Format: "Subject + Action + Object". 
+      Difficulty: Easy to draw. 
+      Return JSON: {"prompts": ["phrase1", "phrase2"]}
+    `);
+    const data = JSON.parse(result.response.text());
+    const prompts = data.prompts || [];
+    if (prompts.length < 2) throw new Error("not enough prompts");
+    return { A: prompts[0], B: prompts[1] };
+  } catch (error) {
+    console.error("[pickTwoPrompts Error]", error.message);
+    return { A: "a cat", B: "a dog" };
+  }
 }
 
 export async function handleGameStart(io, userId, roomId){
@@ -67,7 +88,7 @@ export async function handleGameStart(io, userId, roomId){
 }
 
 async function startDrawPhase(io, roomId){
-  const prompts = pickTwoPrompts();
+  const prompts = await pickTwoPrompts(); // add await mới chạy được á
   const room = roomData.get(roomId);
   
   //update phase
@@ -147,9 +168,79 @@ export function handleDraw(io, userId, roomId, drawObject){
 }
 
 
-async function compareText(guess, prompts){
-  if (guess === prompts) return 1.0;
-  else return 0.1;
+async function compareText(guess, target) {
+  const g = guess.toLowerCase().trim().replace(/\s+/g, " ");
+  const t = target.toLowerCase().trim().replace(/\s+/g, " ");
+
+  if (g === t) return 1.0;
+
+  const key = `${g}|${t}`;
+  if (_compareCache.has(key)) return _compareCache.get(key);
+
+  // Word overlap (70%)
+  const STOPWORDS = new Set(["the","and","for","are","but","a","an"]);
+  const tokenize = str => str.split(" ").filter(w => w.length >= 3 && !STOPWORDS.has(w));
+  const gWords = new Set(tokenize(g));
+  const tWords = new Set(tokenize(t));
+  let wordScore = 0;
+  if (gWords.size > 0 && tWords.size > 0) {
+    let hits = 0;
+    for (const w of gWords) if (tWords.has(w)) hits++;
+    const precision = hits / gWords.size;
+    const recall = hits / tWords.size;
+    wordScore = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
+  }
+
+  // Bigram Jaccard (30%)
+  const bigrams = str => {
+    const set = new Set();
+    for (let i = 0; i < str.length - 1; i++) set.add(str.slice(i, i + 2));
+    return set;
+  };
+  const gBi = bigrams(g.replace(/ /g, ""));
+  const tBi = bigrams(t.replace(/ /g, ""));
+  let charScore = 0;
+  if (gBi.size > 0 && tBi.size > 0) {
+    let intersection = 0;
+    for (const b of gBi) if (tBi.has(b)) intersection++;
+    charScore = intersection / (gBi.size + tBi.size - intersection);
+  }
+
+  const quickScore = parseFloat((0.7 * wordScore + 0.3 * charScore).toFixed(4));
+
+  if (quickScore >= 0.5) {
+    const score = Math.min(1.0, Math.max(0.1, quickScore));
+    _compareCache.set(key, score);
+    return score;
+  }
+
+  // AI with timeout 3s
+  try {
+    const model = _genAI.getGenerativeModel({
+      model: "gemini-2.0-flash-lite",
+      generationConfig: { temperature: 0, maxOutputTokens: 64, responseMimeType: "application/json" }
+    });
+
+    const aiResult = await Promise.race([
+      model.generateContent(
+        `You are a semantic similarity judge for a word-guessing game.
+Secret: "${t}" — Guess: "${g}"
+Return ONLY: {"score": <0.0 to 1.0>}`
+      ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 3000))
+    ]);
+
+    const parsed = JSON.parse(aiResult.response.text().trim());
+    const score = typeof parsed?.score === "number"
+      ? Math.min(1.0, Math.max(0.1, parsed.score))
+      : quickScore;
+
+    _compareCache.set(key, score);
+    return score;
+  } catch {
+    _compareCache.set(key, quickScore);
+    return quickScore;
+  }
 }
 
 export async function handleGuess(io, userId, roomId, guess){
