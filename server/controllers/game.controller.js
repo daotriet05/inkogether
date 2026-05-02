@@ -83,14 +83,17 @@ export async function handleGameStart(io, userId, roomId){
 
   // update room phase and start game flow
   await startDrawPhase(io, roomId);
+  if (!roomData.get(roomId)) return;
   await startGuessPhase(io, roomId);
+  if (!roomData.get(roomId)) return;
   startSummaryPhase(io, roomId);
 }
 
 async function startDrawPhase(io, roomId){
   const prompts = await pickTwoPrompts(); // add await mới chạy được á
   const room = roomData.get(roomId);
-  
+  if (!room) return;
+
   //update phase
   room.phase = "DRAW"
 
@@ -113,6 +116,7 @@ async function startDrawPhase(io, roomId){
 
 async function startGuessPhase(io, roomId){
   const room = roomData.get(roomId);
+  if (!room) return;
 
   //update phase
   room.phase = "GUESS"
@@ -130,7 +134,8 @@ async function startGuessPhase(io, roomId){
 
 function startSummaryPhase(io, roomId){
   const room = roomData.get(roomId);
-  
+  if (!room) return;
+
   // update phase
   room.phase = "SUMMARY";
 
