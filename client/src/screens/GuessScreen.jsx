@@ -17,7 +17,7 @@ export default function GuessScreen() {
   const myCfg = myTeam ? TEAMS[myTeam] : null;
 
   const [text, setText] = useState('');
-  const hasMatch = guesses.some(g => g.match);
+  // const hasMatch = guesses.some(g => g.match);
 
   const submit = (e) => {
     e.preventDefault();
@@ -34,8 +34,8 @@ export default function GuessScreen() {
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: 16, gap: 16 }}>
         {/* ── Drawing + header ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 , padding: '8px 8px 0 0'}}>
             <span className="sticker" style={{ borderColor: oppCfg.accent, background: oppCfg.accent }}>
               {oppCfg.emoji} {oppCfg.name}'s drawing
             </span>
@@ -51,7 +51,11 @@ export default function GuessScreen() {
             </div>
           </div>
 
-          <StrokeCanvas strokes={opponentStrokes} />
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+              <StrokeCanvas strokes={opponentStrokes} style={{ maxHeight: '100%' }} />
+            </div>
+          </div>
         </div>
 
         {/* ── Guess panel ── */}
@@ -84,23 +88,25 @@ export default function GuessScreen() {
                     gap: 8,
                     padding: '6px 10px',
                     borderRadius: 8,
-                    background: g.match ? 'var(--lime)' : '#f0ede8',
-                    border: g.match ? 'var(--border)' : '2px solid transparent',
+                    // background: g.match ? 'var(--lime)' : '#f0ede8',
+                    // border: g.match ? 'var(--border)' : '2px solid transparent',
+                    background: '#f0ede8',
+                    border: '2px solid transparent',
                     fontSize: 13,
                   }}
                 >
-                  {g.match && <Check size={14} />}
+                  {/* {g.match && <Check size={14} />} */}
                   <span style={{ fontWeight: 600, marginRight: 2 }}>{g.who}:</span>
                   <span>{g.msg}</span>
                 </div>
               ))}
             </div>
 
-            {hasMatch ? (
+            {/* {hasMatch ? (
               <div style={{ textAlign: 'center', padding: '10px 0', fontWeight: 700, color: 'var(--ink)' }}>
                 ✓ Got it! Waiting for time to end…
               </div>
-            ) : (
+            ) : ( */}
               <form onSubmit={submit} style={{ display: 'flex', gap: 8 }}>
                 <input
                   className="input"
@@ -113,7 +119,7 @@ export default function GuessScreen() {
                   <Send size={14} />
                 </button>
               </form>
-            )}
+            {/* )} */}
           </div>
 
           {/* Team chat */}
