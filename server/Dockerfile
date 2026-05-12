@@ -10,6 +10,7 @@ RUN npm install --production
 COPY server.js .
 COPY controllers/ ./controllers/
 COPY data/ ./data/
+COPY lib/ ./lib/
 
 EXPOSE 3001 3002 3003
 

@@ -1,5 +1,6 @@
 import { roomData } from "../data/store.js";
 import { randomBytes } from "node:crypto";
+import { clearRoomOwner, registerRoomOwner } from "../lib/room-assigner.js";
 // GET ROOM DATA
 export function getRoomData(req, res){
   const roomId = req.params.roomId;
@@ -30,7 +31,7 @@ export function getRoomData(req, res){
 }
 
 // CREATE ROOM
-export function handleCreateRoom(io, socket, userObject){
+export async function handleCreateRoom(io, socket, userObject){
   if (!socket || !userObject) return null;
   // setup user information
   const socketUserObject = {
@@ -71,6 +72,8 @@ export function handleCreateRoom(io, socket, userObject){
 
   // log
   console.log(`user ${socket.id} created the room ${roomId}`);
+
+  await registerRoomOwner(roomId);
 
   return roomId;
 }
@@ -194,7 +197,7 @@ export function handleRoomReplay(io, roomId){
 }
 
 // END ROOM
-export function handleEndRoom(io, roomId){
+export async function handleEndRoom(io, roomId){
   if (roomData.get(roomId).phase !== "END" && roomData.get(roomId).phase !== "LOBBY")
     return
 
@@ -203,10 +206,11 @@ export function handleEndRoom(io, roomId){
 
   // delete data
   roomData.delete(roomId);
+  await clearRoomOwner(roomId);
 }
 
 // DISCONNECT
-export function handleDisconnect(io, userId, socketRoomId){
+export async function handleDisconnect(io, userId, socketRoomId){
   if (!socketRoomId) return;
 
   const room = roomData.get(socketRoomId);
@@ -234,6 +238,7 @@ export function handleDisconnect(io, userId, socketRoomId){
     } else {
       // this means this player is the last player in the room
       roomData.delete(socketRoomId);
+      await clearRoomOwner(socketRoomId);
       console.log(`room ${socketRoomId} deleted because the last player left`);
       return
     }

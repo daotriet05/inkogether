@@ -24,7 +24,7 @@ import {
   handleMessageLobby, 
   handleMessageTeam 
 } from "./controllers/message.controller.js";
-import { roomData } from "./data/store.js";
+import { getRoomAssignment } from "./controllers/assign.controller.js";
 
 const app = express();
 app.use(cors());
@@ -50,6 +50,7 @@ Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
 
 
 app.get("/api/room/:roomId", getRoomData);
+app.get("/api/assign/:roomId", getRoomAssignment);
 
 
 
@@ -58,7 +59,7 @@ io.on("connection", (socket) => {
   let socketRoomId = null;
 
   socket.on("room:create", async (userObject) =>{
-    socketRoomId = handleCreateRoom(io, socket, userObject);
+    socketRoomId = await handleCreateRoom(io, socket, userObject);
   });
 
   socket.on("room:join", (userObject, roomId) => {
@@ -101,12 +102,12 @@ io.on("connection", (socket) => {
     handleRoomReplay(io, socketRoomId)
   })
 
-  socket.on("room:end", () =>{
-    handleEndRoom(io, socketRoomId)
+  socket.on("room:end", async () =>{
+    await handleEndRoom(io, socketRoomId)
   })
 
-  socket.on("disconnect", () => {
-    handleDisconnect(io, socket.id, socketRoomId)
+  socket.on("disconnect", async () => {
+    await handleDisconnect(io, socket.id, socketRoomId)
   });
 
 });
