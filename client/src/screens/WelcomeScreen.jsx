@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { useGame, useSocket } from '../App';
+import { useGame } from '../App';
 import { ArrowRight, Plus } from '../components/Icons';
 
 export default function WelcomeScreen() {
-  const { emit, state, dispatch } = useGame();
-  const socket = useSocket();
+  const { emit, state, dispatch, connectToSocketUrl } = useGame();
   const [mode, setMode] = useState(null);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
@@ -19,16 +18,27 @@ export default function WelcomeScreen() {
     const roomCode = code.trim();
     
     try {
-      const res = await fetch(`http://localhost:3000/api/room/${roomCode}`);
+      const assignRes = await fetch(`http://localhost:3000/api/assign/${roomCode}`);
+      if (!assignRes.ok) {
+        dispatch({ type: 'ERROR', message: 'room not found or game in progress' });
+        setTimeout(() => dispatch({ type: 'CLEAR_ERROR' }), 4000);
+        return;
+      }
+
+      const assignment = await assignRes.json();
+      const assignedSocket = await connectToSocketUrl(assignment.socketUrl);
+
+      const res = await fetch(`${assignment.socketUrl}/api/room/${roomCode}`);
       if (!res.ok) {
         dispatch({ type: 'ERROR', message: 'room not found or game in progress' });
         setTimeout(() => dispatch({ type: 'CLEAR_ERROR' }), 4000);
         return;
       }
+
       const data = await res.json();
       dispatch({ type: 'HYDRATE_ROOM', data });
-      dispatch({ type: 'SET_MY_ID', myId: socket.id });
-      emit('room:join', { nickname: name.trim(), avatarId: 'fixed-avatar' }, roomCode);
+      dispatch({ type: 'SET_MY_ID', myId: assignedSocket.id });
+      assignedSocket.emit('room:join', { nickname: name.trim(), avatarId: 'fixed-avatar' }, roomCode);
     } catch (err) {
       dispatch({ type: 'ERROR', message: 'failed to connect to server' });
       setTimeout(() => dispatch({ type: 'CLEAR_ERROR' }), 4000);

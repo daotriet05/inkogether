@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useReducer } from 'react';
+import { createContext, useCallback, useContext, useEffect, useReducer, useState } from 'react';
 import { io } from 'socket.io-client';
 import WelcomeScreen from './screens/WelcomeScreen';
 import LobbyScreen from './screens/LobbyScreen';
@@ -7,7 +7,17 @@ import GuessScreen from './screens/GuessScreen';
 import SummaryScreen from './screens/SummaryScreen';
 import EndScreen from './screens/EndScreen';
 
-const socket = io('http://localhost:3000');
+const DEFAULT_SOCKET_URL = 'http://localhost:3000';
+
+function createSocket(url) {
+  return io(url, {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: 5
+  });
+}
 
 const GameContext = createContext(null);
 const SocketContext = createContext(null);
@@ -116,7 +126,42 @@ function reducer(state, action) {
 }
 
 export default function App() {
+  const [socket, setSocket] = useState(() => createSocket(DEFAULT_SOCKET_URL));
+  const [activeSocketUrl, setActiveSocketUrl] = useState(DEFAULT_SOCKET_URL);
   const [state, dispatch] = useReducer(reducer, initialState);
+
+  const connectToSocketUrl = useCallback(async (socketUrl) => {
+    if (!socketUrl || socketUrl === activeSocketUrl) {
+      return socket;
+    }
+
+    const nextSocket = createSocket(socketUrl);
+
+    await new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        nextSocket.disconnect();
+        reject(new Error('connect timeout'));
+      }, 4000);
+
+      nextSocket.on('connect', () => {
+        clearTimeout(timeoutId);
+        resolve();
+      });
+
+      nextSocket.on('connect_error', (error) => {
+        clearTimeout(timeoutId);
+        nextSocket.disconnect();
+        reject(error);
+      });
+    });
+
+    socket.removeAllListeners();
+    socket.disconnect();
+
+    setSocket(nextSocket);
+    setActiveSocketUrl(socketUrl);
+    return nextSocket;
+  }, [activeSocketUrl, socket]);
 
   useEffect(() => {
     socket.on('error', ({ message }) => {
@@ -204,11 +249,11 @@ export default function App() {
     });
 
     return () => socket.removeAllListeners();
-  }, []);
+  }, [socket]);
 
   const emit = useCallback((event, ...args) => {
     socket.emit(event, ...args);
-  }, []);
+  }, [socket]);
 
   const screen = () => {
     switch (state.phase) {
@@ -223,7 +268,7 @@ export default function App() {
 
   return (
     <SocketContext.Provider value={socket}>
-      <GameContext.Provider value={{ state, emit, dispatch }}>
+      <GameContext.Provider value={{ state, emit, dispatch, connectToSocketUrl }}>
         {screen()}
       </GameContext.Provider>
     </SocketContext.Provider>
