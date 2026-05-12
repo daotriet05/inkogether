@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
+import { createClient } from "redis";
+import { createAdapter } from "@socket.io/redis-adapter";
 import { 
   getRoomData, 
   handleCreateRoom, 
@@ -33,6 +35,18 @@ export const io = new Server(httpServer, {
     origin: "*",
   },
 }); 
+
+// Initialize Redis adapter for multi-replica broadcasts
+const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+const pubClient = createClient({ url: redisUrl });
+const subClient = pubClient.duplicate();
+
+Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+  io.adapter(createAdapter(pubClient, subClient));
+  console.log("Redis adapter connected");
+}).catch((err) => {
+  console.error("Failed to connect to Redis:", err);
+});
 
 
 app.get("/api/room/:roomId", getRoomData);

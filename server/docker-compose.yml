@@ -1,12 +1,27 @@
 services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   app1:
     build: .
     image: inkogether:1.0
     environment:
       - APP_NAME=app1
       - PORT=3001
+      - REDIS_URL=redis://redis:6379
     ports:
       - "3001:3001"
+    depends_on:
+      redis:
+        condition: service_healthy
 
   app2:
     build: .
@@ -14,8 +29,12 @@ services:
     environment:
       - APP_NAME=app2
       - PORT=3002
+      - REDIS_URL=redis://redis:6379
     ports:
       - "3002:3002"
+    depends_on:
+      redis:
+        condition: service_healthy
 
   app3:
     build: .
@@ -23,8 +42,12 @@ services:
     environment:
       - APP_NAME=app3
       - PORT=3003
+      - REDIS_URL=redis://redis:6379
     ports:
       - "3003:3003"
+    depends_on:
+      redis:
+        condition: service_healthy
 
   nginx:
     image: nginx:stable
