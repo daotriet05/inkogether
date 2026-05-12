@@ -99,7 +99,7 @@ io.on("connection", (socket) => {
 
 
 
-const port = 3000;
+const port = process.env.PORT || 3000;
 httpServer.listen(port, () => {
   console.log(`Server is listening on http://localhost:${port}`);
 });
@@ -107,5 +107,3 @@ httpServer.listen(port, () => {
 // add guard into functions
 // add validators for event inputs
 // add TTL to auto clean up room after max-time limit
-// add AI compare text
-// add AI generate prompts

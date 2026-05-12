@@ -9,8 +9,8 @@ const PROMPTS = [
 ]
 */
 
-const DRAW_PHASE_SECONDS = 20;
-const GUESS_PHASE_SECONDS = 20;
+const DRAW_PHASE_SECONDS = 60;
+const GUESS_PHASE_SECONDS = 60;
 //const BEFORE_SUMMARY_PHASE_SECONDS = 30; // need a gap between GUESS_PHASE and SUMMARY_PHASE to finish all matching check by AI 
 
 const _genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); // init AI model
