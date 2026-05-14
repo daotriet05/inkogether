@@ -17,7 +17,8 @@ export default function GuessScreen() {
   const myCfg = myTeam ? TEAMS[myTeam] : null;
 
   const [text, setText] = useState('');
-  // const hasMatch = guesses.some(g => g.match);
+  const hasMatch = guesses.some(g => g.match);
+  const formatAccuracy = (accuracy) => `${Math.round((Number(accuracy) || 0) * 100)}%`;
 
   const submit = (e) => {
     e.preventDefault();
@@ -88,25 +89,24 @@ export default function GuessScreen() {
                     gap: 8,
                     padding: '6px 10px',
                     borderRadius: 8,
-                    // background: g.match ? 'var(--lime)' : '#f0ede8',
-                    // border: g.match ? 'var(--border)' : '2px solid transparent',
-                    background: '#f0ede8',
-                    border: '2px solid transparent',
+                    background: g.highAccuracy ? 'var(--lime)' : '#f0ede8',
+                    border: g.highAccuracy ? 'var(--border)' : '2px solid transparent',
                     fontSize: 13,
                   }}
                 >
-                  {/* {g.match && <Check size={14} />} */}
+                  {g.highAccuracy && <Check size={14} />} 
                   <span style={{ fontWeight: 600, marginRight: 2 }}>{g.who}:</span>
-                  <span>{g.msg}</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>{g.msg}</span>
+                  <span style={{ fontWeight: 700 }}>{formatAccuracy(g.accuracy)}</span>
                 </div>
               ))}
             </div>
 
-            {/* {hasMatch ? (
+            {hasMatch ? (
               <div style={{ textAlign: 'center', padding: '10px 0', fontWeight: 700, color: 'var(--ink)' }}>
-                ✓ Got it! Waiting for time to end…
+                ✓ you got it! now wait for timer to run out.
               </div>
-            ) : ( */}
+            ) : (
               <form onSubmit={submit} style={{ display: 'flex', gap: 8 }}>
                 <input
                   className="input"
@@ -119,7 +119,7 @@ export default function GuessScreen() {
                   <Send size={14} />
                 </button>
               </form>
-            {/* )} */}
+            )} 
           </div>
 
           {/* Team chat */}

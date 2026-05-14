@@ -214,12 +214,15 @@ export default function App() {
     });
 
     socket.on('game:guess:new', (guessObj) => {
+      const accuracy = Number(guessObj.matching) || 0;
       dispatch({ 
         type: 'GUESS_RESULT', 
         guess: { 
           who: guessObj.nickname, 
           msg: guessObj.guess, 
-          match: guessObj.matching >= 0.5 } });
+          accuracy,
+          highAccuracy: accuracy > 0.85,
+          match: accuracy >= 1 } });
     });
 
     socket.on('game:summary', (prompts, strokes, guesses) => {
