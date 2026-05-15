@@ -19,6 +19,8 @@ function createSocket(url) {
   });
 }
 
+const defaultSocket = createSocket(DEFAULT_SOCKET_URL);
+
 const GameContext = createContext(null);
 const SocketContext = createContext(null);
 
@@ -126,7 +128,7 @@ function reducer(state, action) {
 }
 
 export default function App() {
-  const [socket, setSocket] = useState(() => createSocket(DEFAULT_SOCKET_URL));
+  const [socket, setSocket] = useState(() => defaultSocket);
   const [activeSocketUrl, setActiveSocketUrl] = useState(DEFAULT_SOCKET_URL);
   const [state, dispatch] = useReducer(reducer, initialState);
 
