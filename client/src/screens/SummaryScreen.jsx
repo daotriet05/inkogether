@@ -85,7 +85,7 @@ export default function SummaryScreen() {
     return rawGuesses.map(g => ({
       who: g.nickname || 'Unknown',
       msg: g.guess,
-      match: g.matching >= 0.5
+      match: g.matching >= 0.85,
     }));
   };
 
