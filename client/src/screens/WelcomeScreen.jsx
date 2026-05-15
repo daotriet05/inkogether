@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useGame } from '../App';
+import { useGame } from '../lib/gameContext';
 import { ArrowRight, Plus } from '../components/Icons';
 
 export default function WelcomeScreen() {
@@ -39,7 +39,7 @@ export default function WelcomeScreen() {
       dispatch({ type: 'HYDRATE_ROOM', data });
       dispatch({ type: 'SET_MY_ID', myId: assignedSocket.id });
       assignedSocket.emit('room:join', { nickname: name.trim(), avatarId: 'fixed-avatar' }, roomCode);
-    } catch (err) {
+    } catch {
       dispatch({ type: 'ERROR', message: 'failed to connect to server' });
       setTimeout(() => dispatch({ type: 'CLEAR_ERROR' }), 4000);
     }

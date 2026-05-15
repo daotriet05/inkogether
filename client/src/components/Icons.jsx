@@ -70,6 +70,21 @@ export const Copy = (p) => (
   </I>
 );
 
+export const Volume = (p) => (
+  <I {...p}>
+    <path d="M3 8v4h3l4 4V4L6 8H3z" />
+    <path d="M13 7.5a3 3 0 0 1 0 5" />
+    <path d="M15.5 5a6 6 0 0 1 0 10" />
+  </I>
+);
+
+export const VolumeOff = (p) => (
+  <I {...p}>
+    <path d="M3 8v4h3l4 4V4L6 8H3z" />
+    <path d="M14 8l4 4M18 8l-4 4" />
+  </I>
+);
+
 export const Sparkle = (p) => (
   <I {...p}>
     <path d="M10 2v3M10 15v3M2 10h3M15 10h3M4.22 4.22l2.12 2.12M13.66 13.66l2.12 2.12M4.22 15.78l2.12-2.12M13.66 6.34l2.12-2.12" />

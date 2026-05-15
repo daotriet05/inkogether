@@ -41,7 +41,7 @@ export default function ChatPanel({ title = 'Chat', messages, onSend }) {
         <input
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder="Say something…"
+          placeholder="say something friendly -) .."
           maxLength={200}
         />
         <button type="submit"><Send size={15} /></button>

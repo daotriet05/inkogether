@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useGame, useSocket } from '../App';
+import { useGame, useSocket } from '../lib/gameContext';
+import { useSound } from '../lib/soundContext';
 import TopBar from '../components/TopBar';
 import ChatPanel from '../components/ChatPanel';
 import { colorFor, initials, drawStroke, TEAMS } from '../lib/utils';
@@ -11,6 +12,7 @@ const SIZES = [3, 8, 16];
 export default function DrawScreen() {
   const { state, emit } = useGame();
   const socket = useSocket();
+  const sound = useSound();
   const { roomCode, players, myId, timer, prompt, messages } = state;
 
   const myPlayer = players.find(p => p.id === myId);
@@ -21,6 +23,7 @@ export default function DrawScreen() {
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
   const lastPos = useRef(null);
+  const lastDrawSound = useRef(0);
 
   const [tool, setTool] = useState('brush');
   const [color, setColor] = useState(COLORS[0]);
@@ -55,6 +58,7 @@ export default function DrawScreen() {
     if (e.button !== 0) return;
     isDrawing.current = true;
     lastPos.current = getPos(e);
+    sound?.play('click');
   };
 
   const handleMouseMove = (e) => {
@@ -72,6 +76,7 @@ export default function DrawScreen() {
     };
     drawStroke(ctx, stroke);
     emit('game:draw:send', stroke);
+    playDrawSound();
     lastPos.current = pos;
   };
 
@@ -96,6 +101,7 @@ export default function DrawScreen() {
     const touch = e.touches[0];
     isDrawing.current = true;
     lastPos.current = getTouchPos(touch);
+    sound?.play('click');
   };
 
   const handleTouchMove = (e) => {
@@ -112,7 +118,8 @@ export default function DrawScreen() {
       tool,
     };
     drawStroke(ctx, stroke);
-    emit('draw', stroke);
+    emit('game:draw:send', stroke);
+    playDrawSound();
     lastPos.current = pos;
   };
 
@@ -122,6 +129,13 @@ export default function DrawScreen() {
       x: (touch.clientX - rect.left) * (800 / rect.width),
       y: (touch.clientY - rect.top)  * (500 / rect.height),
     };
+  };
+
+  const playDrawSound = () => {
+    const now = performance.now();
+    if (now - lastDrawSound.current < 90) return;
+    lastDrawSound.current = now;
+    sound?.play('draw');
   };
 
   const teamMessages = messages.filter(m => m.scope === 'team' || m.scope === 'global');

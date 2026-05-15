@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { colorFor, initials } from '../lib/utils';
-import { Crown, Copy } from './Icons';
+import { useSound } from '../lib/soundContext';
+import { Crown, Copy, Volume, VolumeOff } from './Icons';
 
-export default function TopBar({ roomCode, players, myId }) {
+export default function TopBar({ roomCode, players }) {
   const [copied, setCopied] = useState(false);
+  const sound = useSound();
 
   const copyCode = () => {
     navigator.clipboard.writeText(roomCode).catch(() => {});
+    sound?.play('click');
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -40,6 +43,16 @@ export default function TopBar({ roomCode, players, myId }) {
           </div>
         ))}
       </div>
+
+      <button
+        className="sound-toggle"
+        type="button"
+        onClick={sound?.toggleMuted}
+        title={sound?.muted ? 'sound on' : 'mute sound'}
+        aria-label={sound?.muted ? 'sound on' : 'mute sound'}
+      >
+        {sound?.muted ? <VolumeOff size={17} /> : <Volume size={17} />}
+      </button>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useGame } from '../App';
+import { useGame } from '../lib/gameContext';
 import TopBar from '../components/TopBar';
 import ChatPanel from '../components/ChatPanel';
 import { colorFor, initials, TEAMS } from '../lib/utils';
@@ -48,7 +48,7 @@ function TeamPanel({ team, players, myPlayer, onJoin }) {
 
       <div style={{ minHeight: 80, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {players.length === 0 && (
-          <p className="muted" style={{ fontSize: 13 }}>Empty — join first!</p>
+          <p className="muted" style={{ fontSize: 13 }}>empty - go join first!</p>
         )}
         {players.map(p => <PlayerRow key={p.id} player={p} />)}
       </div>
@@ -118,8 +118,8 @@ export default function LobbyScreen() {
           {isHost && !canStart && (
             <p className="muted" style={{ fontSize: 13, textAlign: 'center' }}>
               {teamA.length === 0 || teamB.length === 0
-                ? 'Both teams need at least one player'
-                : 'Waiting for all players to ready up'}
+                ? 'both teams need at least one player'
+                : 'waiting for all players to ready up'}
             </p>
           )}
 

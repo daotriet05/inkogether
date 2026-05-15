@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useReducer, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 import { io } from 'socket.io-client';
 import WelcomeScreen from './screens/WelcomeScreen';
 import LobbyScreen from './screens/LobbyScreen';
@@ -6,6 +6,8 @@ import DrawScreen from './screens/DrawScreen';
 import GuessScreen from './screens/GuessScreen';
 import SummaryScreen from './screens/SummaryScreen';
 import EndScreen from './screens/EndScreen';
+import { GameSoundEffects, SoundProvider } from './lib/sound';
+import { GameContext, SocketContext } from './lib/gameContext';
 
 const DEFAULT_SOCKET_URL = 'http://localhost:3000';
 
@@ -20,12 +22,6 @@ function createSocket(url) {
 }
 
 const defaultSocket = createSocket(DEFAULT_SOCKET_URL);
-
-const GameContext = createContext(null);
-const SocketContext = createContext(null);
-
-export const useGame = () => useContext(GameContext);
-export const useSocket = () => useContext(SocketContext);
 
 const initialState = {
   phase: 'welcome',
@@ -171,7 +167,7 @@ export default function App() {
       setTimeout(() => dispatch({ type: 'CLEAR_ERROR' }), 4000);
     });
 
-    socket.on('room:created', ({ roomId, roomHostId, host }) => {
+    socket.on('room:created', ({ roomId, host }) => {
       dispatch({ type: 'ROOM_CREATED', roomId, myId: socket.id, host});
     });
 
@@ -206,7 +202,7 @@ export default function App() {
       }
     });
 
-    socket.on('game:draw:new', (stroke) => {
+    socket.on('game:draw:new', () => {
       // Backend doesn't differentiate self strokes in broadcast, so we rely on socket channel isolation
       // FE DrawScreen will handle it
     });
@@ -273,9 +269,12 @@ export default function App() {
 
   return (
     <SocketContext.Provider value={socket}>
-      <GameContext.Provider value={{ state, emit, dispatch, connectToSocketUrl }}>
-        {screen()}
-      </GameContext.Provider>
+      <SoundProvider>
+        <GameContext.Provider value={{ state, emit, dispatch, connectToSocketUrl }}>
+          <GameSoundEffects state={state} />
+          {screen()}
+        </GameContext.Provider>
+      </SoundProvider>
     </SocketContext.Provider>
   );
 }

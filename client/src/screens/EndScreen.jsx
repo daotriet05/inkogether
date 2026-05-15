@@ -1,4 +1,4 @@
-import { useGame } from '../App';
+import { useGame } from '../lib/gameContext';
 import TopBar from '../components/TopBar';
 import ChatPanel from '../components/ChatPanel';
 import { Refresh, Door } from '../components/Icons';
