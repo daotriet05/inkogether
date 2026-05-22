@@ -9,7 +9,7 @@ import EndScreen from './screens/EndScreen';
 import { GameSoundEffects, SoundProvider } from './lib/sound';
 import { GameContext, SocketContext } from './lib/gameContext';
 
-const DEFAULT_SOCKET_URL = 'http://localhost:3000';
+const DEFAULT_SOCKET_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 
 function createSocket(url) {
   return io(url, {

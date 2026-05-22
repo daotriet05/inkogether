@@ -12,13 +12,15 @@ export default function WelcomeScreen() {
     e.preventDefault();
     emit('room:create', { nickname: name.trim(), avatarId: 'fixed-avatar' });
   };
+  
+  const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 
   const join = async (e) => {
     e.preventDefault();
     const roomCode = code.trim();
     
     try {
-      const assignRes = await fetch(`http://localhost:3000/api/assign/${roomCode}`);
+      const assignRes = await fetch(`${API_BASE}/api/assign/${roomCode}`);
       if (!assignRes.ok) {
         dispatch({ type: 'ERROR', message: 'room not found or game in progress' });
         setTimeout(() => dispatch({ type: 'CLEAR_ERROR' }), 4000);
