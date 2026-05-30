@@ -70,37 +70,6 @@ npm run dev
 
 Open the client URL shown by Vite (usually http://localhost:5173).
 
-## Local single-replica mode (without Docker)
-
-Install and run backend:
-
-```bash
-cd server
-npm install
-```
-
-Set environment variables before starting:
-
-```bash
-# PowerShell example
-$env:PORT="3000"
-$env:APP_NAME="app1"
-$env:REDIS_URL="redis://localhost:6379"
-$env:REPLICA_NAMES="app1"
-$env:REPLICA_PUBLIC_ENDPOINTS="http://localhost:3000"
-# Optional
-$env:GEMINI_API_KEY="your_key_here"
-npm start
-```
-
-Run frontend:
-
-```bash
-cd client
-npm install
-npm run dev
-```
-
 ## Environment variables (backend)
 
 | Variable | Required | Description |
@@ -129,6 +98,10 @@ npm run dev
 - Configure CORS and origin restrictions before production deployment.
 - Use persistent logging/monitoring for replicas and Redis.
 - Consider rate limiting and input validation on all user events.
+
+> [!NOTE]
+> Note on Audio: The background music is not included in this repository to comply with Pixabay's redistribution license.
+> To run the game locally with sound, please download track called Game Gaming Music of HitsLab from Pixabay and save it as `background-music.mp3` inside the `assets/audio/` folder.
 
 ## Troubleshooting
 

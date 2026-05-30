@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SoundContext, useSound } from './soundContext';
 
 const STORAGE_KEY = 'inkogether:sound-muted';
+const BACKGROUND_MUSIC_VOLUME = 0.1;
+const BACKGROUND_MUSIC_URL = '/src/assets/audio/background_music.mp3';
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -16,7 +18,7 @@ function createSynth() {
 
       audioContext = new AudioContext();
       masterGain = audioContext.createGain();
-      masterGain.gain.value = 0.18;
+      masterGain.gain.value = 0.8;
       masterGain.connect(audioContext.destination);
     }
 
@@ -157,8 +159,11 @@ function createSynth() {
 
 export function SoundProvider({ children }) {
   const synth = useMemo(() => createSynth(), []);
-  const [muted, setMuted] = useState(() => localStorage.getItem(STORAGE_KEY) === 'true');
+  const backgroundMusicRef = useRef(null);
+  const backgroundMusicAvailableRef = useRef(null);
+  const [muted, setMuted] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  const [backgroundMusicEnabled, setBackgroundMusicEnabled] = useState(false);
 
   const unlock = useCallback(async () => {
     const ready = await synth.unlock();
@@ -182,6 +187,65 @@ export function SoundProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, String(muted));
   }, [muted]);
 
+  useEffect(() => {
+    return () => {
+      const backgroundMusic = backgroundMusicRef.current;
+      if (!backgroundMusic) return;
+
+      backgroundMusic.pause();
+      backgroundMusicRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const backgroundMusic = backgroundMusicRef.current;
+    if (!backgroundMusic) return;
+
+    backgroundMusic.volume = clamp(BACKGROUND_MUSIC_VOLUME, 0, 1);
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const playBackgroundMusic = async () => {
+      if (backgroundMusicAvailableRef.current === false) return;
+
+      if (backgroundMusicAvailableRef.current === null) {
+        try {
+          const response = await fetch(BACKGROUND_MUSIC_URL, { method: 'HEAD' });
+          backgroundMusicAvailableRef.current = response.ok;
+        } catch {
+          backgroundMusicAvailableRef.current = false;
+        }
+      }
+
+      if (cancelled || backgroundMusicAvailableRef.current === false) return;
+
+      if (!backgroundMusicRef.current) {
+        const backgroundMusic = new Audio(BACKGROUND_MUSIC_URL);
+        backgroundMusic.loop = true;
+        backgroundMusic.preload = 'auto';
+        backgroundMusicRef.current = backgroundMusic;
+      }
+
+      const backgroundMusic = backgroundMusicRef.current;
+      backgroundMusic.volume = clamp(BACKGROUND_MUSIC_VOLUME, 0, 1);
+      backgroundMusic.play().catch(() => {
+        backgroundMusic.pause();
+      });
+    };
+
+    if (!backgroundMusicEnabled || !unlocked || muted) {
+      backgroundMusicRef.current?.pause();
+      return;
+    }
+
+    playBackgroundMusic();
+    return () => {
+      cancelled = true;
+    };
+  }, [backgroundMusicEnabled, muted, unlocked]);
+
   const play = useCallback((name) => {
     if (muted) return;
     unlock();
@@ -193,7 +257,10 @@ export function SoundProvider({ children }) {
     unlock();
   }, [unlock]);
 
-  const value = useMemo(() => ({ muted, unlocked, play, toggleMuted }), [muted, unlocked, play, toggleMuted]);
+  const value = useMemo(
+    () => ({ muted, unlocked, play, toggleMuted, setBackgroundMusicEnabled }),
+    [muted, unlocked, play, toggleMuted]
+  );
 
   return (
     <SoundContext.Provider value={value}>
@@ -205,6 +272,10 @@ export function SoundProvider({ children }) {
 export function GameSoundEffects({ state }) {
   const sound = useSound();
   const previous = useRef(null);
+
+  useEffect(() => {
+    sound?.setBackgroundMusicEnabled(Boolean(state.roomCode));
+  }, [sound, state.roomCode]);
 
   useEffect(() => {
     if (!sound) return;
