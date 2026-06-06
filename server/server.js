@@ -48,6 +48,32 @@ Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
   console.error("Failed to connect to Redis:", err);
 });
 
+app.get("/health", async (req, res) => {
+  const appName = process.env.APP_NAME || "unknown";
+  const port = process.env.PORT || "unknown";
+
+  try {
+    await pubClient.ping();
+
+    res.status(200).json({
+      status: "ok",
+      app: appName,
+      port,
+      redis: "connected",
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: "error",
+      app: appName,
+      port,
+      redis: "disconnected",
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 app.get("/api/room/:roomId", getRoomData);
 app.get("/api/assign/:roomId", getRoomAssignment);
