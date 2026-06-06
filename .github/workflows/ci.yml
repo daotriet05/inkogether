@@ -1,0 +1,65 @@
+name: inkogether CI pipeline check
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  client-build:
+    name: build React client
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+
+      - name: set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: run lint
+        run: npm run lint
+
+      - name: build client
+        run: npm run build
+
+  backend-stack-check:
+    name: build and check backend stack
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+
+      - name: make health-check script executable
+        run: chmod +x server/scripts/check-stack.sh
+
+      - name: start distributed backend stack
+        run: docker compose -f server/docker-compose.yml up -d --build
+
+      - name: wait for services to start
+        run: sleep 20
+
+      - name: show running containers
+        run: docker compose -f server/docker-compose.yml ps
+
+      - name: run backend stack health check
+        run: ./server/scripts/check-stack.sh
+
+      - name: show logs if failed
+        if: failure()
+        run: docker compose -f server/docker-compose.yml logs
+
+      - name: stop backend stack
+        if: always()
+        run: docker compose -f server/docker-compose.yml down
