@@ -3,7 +3,7 @@ import { useGame, useSocket } from '../lib/gameContext';
 import { useSound } from '../lib/soundContext';
 import TopBar from '../components/TopBar';
 import ChatPanel from '../components/ChatPanel';
-import { colorFor, initials, drawStroke, TEAMS } from '../lib/utils';
+import { colorFor, initials, replayStrokes, TEAMS } from '../lib/utils';
 import { Brush, Eraser } from '../components/Icons';
 
 const COLORS = ['#1c1a17', '#e05b3c', '#3b82f6', '#22c55e', '#f59e0b', '#9b59b6'];
@@ -25,6 +25,10 @@ export default function DrawScreen() {
   const lastPos = useRef(null);
   const lastDrawSound = useRef(0);
 
+  // crdt states
+  const localStrokes = useRef([]);
+  const localClock = useRef(0);
+
   const [tool, setTool] = useState('brush');
   const [color, setColor] = useState(COLORS[0]);
   const [size, setSize] = useState(SIZES[0]);
@@ -39,12 +43,33 @@ export default function DrawScreen() {
     canvas.getContext('2d').scale(dpr, dpr);
   }, []);
 
-  useEffect(() => {
+  // CRDT process and redraw 
+  const processAndRedrawStrokes = () => {
+    // sort by Lamport timestamp then by Client ID for ties
+    //  V8's Timsort is heavily optimized for nearly-sorted arrays making this O(N) practically
+    localStrokes.current.sort((a, b) => {
+      if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
+      return a.clientId.localeCompare(b.clientId);
+    });
+
     const ctx = canvasRef.current.getContext('2d');
-    const onStroke = (stroke) => drawStroke(ctx, stroke);
+    replayStrokes(ctx, localStrokes.current);
+  };
+
+  useEffect(() => {
+    const onStroke = (incomingStroke) => {
+      if (incomingStroke.clientId === myId) return;
+
+      // Lamport clocks: max(local, incoming)
+      localClock.current = Math.max(localClock.current, incomingStroke.timestamp);
+
+      localStrokes.current.push(incomingStroke);
+      processAndRedrawStrokes();
+    };
+
     socket.on('game:draw:new', onStroke);
     return () => socket.off('game:draw:new', onStroke);
-  }, [socket]);
+  }, [socket, myId]);
 
   const getPos = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
@@ -52,6 +77,33 @@ export default function DrawScreen() {
       x: (e.clientX - rect.left) * (800 / rect.width),
       y: (e.clientY - rect.top)  * (500 / rect.height),
     };
+  };
+
+
+  const handleLocalStroke = (pos) => {
+    // lamport Clocks: increment local clock before send
+    localClock.current += 1;
+
+    const stroke = {
+      // unique ID for idempotency  
+      id: `${myId}-${localClock.current}`,
+      clientId: myId,
+      timestamp: localClock.current,
+      x0: lastPos.current.x, 
+      y0: lastPos.current.y,
+      x1: pos.x, 
+      y1: pos.y,
+      color: tool === 'eraser' ? null : color,
+      size: tool === 'eraser' ? 30 : size,
+      tool,
+    };
+
+    localStrokes.current.push(stroke);
+    processAndRedrawStrokes();
+
+    emit('game:draw:send', stroke);
+    playDrawSound();
+    lastPos.current = pos;
   };
 
   const handleMouseDown = (e) => {
@@ -64,20 +116,9 @@ export default function DrawScreen() {
   const handleMouseMove = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     setCursor({ x: e.clientX - rect.left, y: e.clientY - rect.top, scale: rect.width / 800 });
+    
     if (!isDrawing.current || !lastPos.current) return;
-    const ctx = canvasRef.current.getContext('2d');
-    const pos = getPos(e);
-    const stroke = {
-      x0: lastPos.current.x, y0: lastPos.current.y,
-      x1: pos.x, y1: pos.y,
-      color: tool === 'eraser' ? null : color,
-      size: tool === 'eraser' ? 30 : size,
-      tool,
-    };
-    drawStroke(ctx, stroke);
-    emit('game:draw:send', stroke);
-    playDrawSound();
-    lastPos.current = pos;
+    handleLocalStroke(getPos(e));
   };
 
   const stopDrawing = () => {
@@ -107,20 +148,7 @@ export default function DrawScreen() {
   const handleTouchMove = (e) => {
     e.preventDefault();
     if (!isDrawing.current || !lastPos.current) return;
-    const touch = e.touches[0];
-    const ctx = canvasRef.current.getContext('2d');
-    const pos = getTouchPos(touch);
-    const stroke = {
-      x0: lastPos.current.x, y0: lastPos.current.y,
-      x1: pos.x, y1: pos.y,
-      color: tool === 'eraser' ? null : color,
-      size: tool === 'eraser' ? 30 : size,
-      tool,
-    };
-    drawStroke(ctx, stroke);
-    emit('game:draw:send', stroke);
-    playDrawSound();
-    lastPos.current = pos;
+    handleLocalStroke(getTouchPos(e.touches[0]));
   };
 
   const getTouchPos = (touch) => {
@@ -263,8 +291,7 @@ export default function DrawScreen() {
                     border: tool === 'eraser'
                       ? '1.5px dashed var(--ink)'
                       : `2px solid ${color}`,
-
-                      boxShadow: '0 0 0 1px #fff, 0 0 0 2.5px #1c1a17',
+                    boxShadow: '0 0 0 1px #fff, 0 0 0 2.5px #1c1a17',
                     background: tool === 'eraser' ? 'transparent' : `${color}30`,
                   }}
                 />

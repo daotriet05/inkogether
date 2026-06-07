@@ -33,15 +33,15 @@ async function countDown(io, roomId, phase, duration){
 
 async function pickTwoPrompts() {
   const model = _genAI.getGenerativeModel({
-    model: "gemini-2.0-flash-lite",
+    model: "gemini-2.5-flash-lite",
     generationConfig: { responseMimeType: "application/json", temperature: 0.8 }
   });
 
   try {
     const result = await model.generateContent(`
       Generate 2 simple drawing prompts for a game. 
-      Format: "Subject + Action + Object". 
-      Difficulty: Easy to draw. 
+      Format: "adjective subject action object whereabouts". Example: "a happy dog playing with a ball on top of the house roof".
+      Difficulty: easy to draw.
       Return JSON: {"prompts": ["phrase1", "phrase2"]}
     `);
     const data = JSON.parse(result.response.text());
