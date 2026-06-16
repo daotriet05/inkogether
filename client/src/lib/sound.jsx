@@ -3,7 +3,7 @@ import { SoundContext, useSound } from './soundContext';
 
 const STORAGE_KEY = 'inkogether:sound-muted';
 const BACKGROUND_MUSIC_VOLUME = 0.1;
-const BACKGROUND_MUSIC_URL = '/src/assets/audio/background_music.mp3';
+const BACKGROUND_MUSIC_URL = '/audio/background_music.mp3';
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 

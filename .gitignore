@@ -3,4 +3,4 @@ server/node_modules
 .env
 .env.local
 .env.*.local
-client/src/assets/audio/background_music.mp3
+client/public/audio/background_music.mp3
