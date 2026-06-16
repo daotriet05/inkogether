@@ -2,8 +2,6 @@ import express from "express";
 import cors from "cors";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
-import { createClient } from "redis";
-import { createAdapter } from "@socket.io/redis-adapter";
 import { 
   getRoomData, 
   handleCreateRoom, 
@@ -36,43 +34,17 @@ export const io = new Server(httpServer, {
   },
 }); 
 
-// Initialize Redis adapter for multi-replica broadcasts
-const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-const pubClient = createClient({ url: redisUrl });
-const subClient = pubClient.duplicate();
-
-Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
-  io.adapter(createAdapter(pubClient, subClient));
-  console.log("Redis adapter connected");
-}).catch((err) => {
-  console.error("Failed to connect to Redis:", err);
-});
-
 app.get("/health", async (req, res) => {
   const appName = process.env.APP_NAME || "unknown";
   const port = process.env.PORT || "unknown";
 
-  try {
-    await pubClient.ping();
-
-    res.status(200).json({
-      status: "ok",
-      app: appName,
-      port,
-      redis: "connected",
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(503).json({
-      status: "error",
-      app: appName,
-      port,
-      redis: "disconnected",
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
+  res.status(200).json({
+    status: "ok",
+    app: appName,
+    port,
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
 });
 
 app.get("/api/room/:roomId", getRoomData);

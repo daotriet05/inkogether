@@ -23,7 +23,8 @@ Players split into two teams, draw from team-specific prompts, swap drawings, an
 ### Distributed room routing
 
  - Nginx: Reverse proxy and load balancer (configured with `least_conn`) used as the public entrypoint and initial load distributor.
- - Redis adapter: Socket.IO uses Redis pub/sub (Redis adapter) for cross-replica broadcasts; Redis is also used for the simple room ownership mapping described below.
+ - Redis is used for the simple room ownership mapping described below.
+ - Routing all players in the same room to the same server keeps shared room state local, which reduces latency and avoids the complexity of syncing in-memory data across replicas.
 
 1. Room is created on a replica (`app1`, `app2`, or `app3`).
 2. Backend stores `room:owner:<roomId> -> <appName>` in Redis with TTL.
