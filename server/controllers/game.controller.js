@@ -41,7 +41,7 @@ async function pickTwoPrompts() {
     const result = await model.generateContent(`
       Generate 2 simple drawing prompts for a game. 
       Format: "adjective subject action object whereabouts". Example: "a happy dog playing with a ball on top of the house roof".
-      Difficulty: easy to draw.
+      Difficulty: easy to draw (not with cat)
       Return JSON: {"prompts": ["phrase1", "phrase2"]}
     `);
     const data = JSON.parse(result.response.text());

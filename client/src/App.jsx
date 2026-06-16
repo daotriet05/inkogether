@@ -219,7 +219,7 @@ export default function App() {
           who: guessObj.nickname, 
           msg: guessObj.guess, 
           accuracy,
-          highAccuracy: accuracy > 0.8,
+          highAccuracy: accuracy > 0.75,
           match: accuracy >= 1 } });
     });
 

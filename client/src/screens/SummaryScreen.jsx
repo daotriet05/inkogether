@@ -1,10 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useGame } from '../lib/gameContext';
+import { useSound } from '../lib/soundContext';
 import TopBar from '../components/TopBar';
 import ChatPanel from '../components/ChatPanel';
 import StrokeCanvas from '../components/StrokeCanvas';
 import { TEAMS } from '../lib/utils';
-import { ArrowRight } from '../components/Icons';
+import { ArrowRight, Check } from '../components/Icons';
+
+const formatAccuracy = (accuracy) => `${Math.round((Number(accuracy) || 0) * 100)}%`;
+
+const mapGuesses = (rawGuesses) => {
+  if (!rawGuesses) return [];
+
+  return rawGuesses.map(g => {
+    const accuracy = Number(g.matching) || 0;
+
+    return {
+      who: g.nickname || 'Unknown',
+      msg: g.guess,
+      accuracy,
+      highAccuracy: accuracy > 0.75,
+      match: accuracy >= 1,
+    };
+  });
+};
 
 function TeamResult({ teamKey, data, revealedCount }) {
   const cfg = TEAMS[teamKey];
@@ -50,18 +69,19 @@ function TeamResult({ teamKey, data, revealedCount }) {
                 gap: 8,
                 padding: '5px 10px',
                 borderRadius: 8,
-                background: g.match ? 'var(--lime)' : '#f0ede8',
-                border: g.match ? 'var(--border)' : '2px solid transparent',
+                background: g.highAccuracy ? 'var(--lime)' : '#f0ede8',
+                border: g.highAccuracy ? 'var(--border)' : '2px solid transparent',
                 fontSize: 13,
               }}
             >
-              <span style={{ fontWeight: 600 }}>{g.who}:</span>
-              <span style={{ flex: 1 }}>{g.msg}</span>
-              {g.match && <span>✓</span>}
+              {g.highAccuracy && <Check size={14} />}
+              <span style={{ fontWeight: 600, marginRight: 2 }}>{g.who}:</span>
+              <span style={{ flex: 1, minWidth: 0 }}>{g.msg}</span>
+              <span style={{ fontWeight: 700 }}>{formatAccuracy(g.accuracy)}</span>
             </div>
           ))}
           {revealedCount < guesses.length && (
-            <div className="muted" style={{ fontSize: 12, padding: '4px 0' }}>…</div>
+            <div className="muted" style={{ fontSize: 12, padding: '4px 0' }}>...</div>
           )}
         </div>
       </div>
@@ -71,6 +91,7 @@ function TeamResult({ teamKey, data, revealedCount }) {
 
 export default function SummaryScreen() {
   const { state, emit } = useGame();
+  const sound = useSound();
   const { roomCode, players, myId, summaryData, messages } = state;
 
   const myPlayer = players.find(p => p.id === myId);
@@ -80,55 +101,56 @@ export default function SummaryScreen() {
   const [revealedB, setRevealedB] = useState(0);
   const [done, setDone] = useState(false);
 
-  const mapGuesses = (rawGuesses) => {
-    if (!rawGuesses) return [];
-    return rawGuesses.map(g => ({
-      who: g.nickname || 'Unknown',
-      msg: g.guess,
-      match: g.matching >= 0.85,
-    }));
-  };
-
-  const mappedTeamA = summaryData ? {
+  const mappedTeamA = useMemo(() => summaryData ? {
     prompt: summaryData.prompts?.A,
     strokes: summaryData.strokes?.A || [],
     guesses: mapGuesses(summaryData.guesses?.B)
-  } : null;
+  } : null, [summaryData]);
 
-  const mappedTeamB = summaryData ? {
+  const mappedTeamB = useMemo(() => summaryData ? {
     prompt: summaryData.prompts?.B,
     strokes: summaryData.strokes?.B || [],
     guesses: mapGuesses(summaryData.guesses?.A)
-  } : null;
+  } : null, [summaryData]);
 
-  // Use the mapped arrays to get the correct totals for the interval logic
   const totalA = mappedTeamA?.guesses?.length ?? 0;
   const totalB = mappedTeamB?.guesses?.length ?? 0;
   const total = totalA + totalB;
 
   useEffect(() => {
     if (!summaryData) return;
+
+    setRevealedA(0);
+    setRevealedB(0);
+    setDone(false);
+
     let step = 0;
     const interval = setInterval(() => {
       step++;
+
       if (step <= totalA) {
         setRevealedA(step);
+        const guess = mappedTeamA?.guesses[step - 1];
+        sound?.play(guess?.highAccuracy ? 'correct' : 'guess');
       } else if (step <= total) {
         setRevealedB(step - totalA);
+        const guess = mappedTeamB?.guesses[step - totalA - 1];
+        sound?.play(guess?.highAccuracy ? 'correct' : 'guess');
       } else {
         clearInterval(interval);
         setDone(true);
       }
     }, 1000);
+
     return () => clearInterval(interval);
-  }, [summaryData, total, totalA]);
+  }, [mappedTeamA, mappedTeamB, sound, summaryData, total, totalA]);
 
   const globalMessages = messages.filter(m => m.scope === 'global' || m.scope === 'system');
 
   if (!summaryData) {
     return (
       <div className="screen">
-        <p className="muted">Loading summary…</p>
+        <p className="muted">Loading summary...</p>
       </div>
     );
   }
@@ -138,7 +160,6 @@ export default function SummaryScreen() {
       <TopBar roomCode={roomCode} players={players} myId={myId} />
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* ── Scrollable summary content ── */}
         <div style={{ flex: 1, overflow: 'auto', padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
           <h2 className="h-display" style={{ fontSize: 28, textAlign: 'center' }}>
             Round summary
@@ -159,12 +180,11 @@ export default function SummaryScreen() {
                 Continue <ArrowRight size={18} />
               </button>
             ) : (
-              <p className="muted" style={{ fontSize: 14 }}>Waiting for host to continue…</p>
+              <p className="muted" style={{ fontSize: 14 }}>Waiting for host to continue...</p>
             )}
           </div>
         </div>
 
-        {/* ── Global chat ── */}
         <div style={{ width: 280, padding: 12, flexShrink: 0 }}>
           <ChatPanel
             title="Room chat"
