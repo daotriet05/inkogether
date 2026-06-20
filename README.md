@@ -4,6 +4,8 @@ Inkogether is a real-time multiplayer drawing and guessing game built with React
 
 Players split into two teams, draw from team-specific prompts, swap drawings, and guess the opposing team prompt.
 
+[![](./readme-assets/thumbnail-yt.png)](https://youtu.be/aFS3hRwST7o)
+
 ## Highlights
 
 - Real-time gameplay with Socket.IO
