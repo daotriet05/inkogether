@@ -89,52 +89,43 @@ function TeamResult({ teamKey, data, revealedCount }) {
   );
 }
 
-export default function SummaryScreen() {
-  const { state, emit } = useGame();
+function SummaryContent({ roomCode, players, myId, summaryData, messages, emit }) {
   const sound = useSound();
-  const { roomCode, players, myId, summaryData, messages } = state;
-
-  const myPlayer = players.find(p => p.id === myId);
-  const isHost = myPlayer?.isHost ?? false;
-
   const [revealedA, setRevealedA] = useState(0);
   const [revealedB, setRevealedB] = useState(0);
   const [done, setDone] = useState(false);
 
-  const mappedTeamA = useMemo(() => summaryData ? {
+  const myPlayer = players.find(p => p.id === myId);
+  const isHost = myPlayer?.isHost ?? false;
+
+  const mappedTeamA = useMemo(() => ({
     prompt: summaryData.prompts?.A,
     strokes: summaryData.strokes?.A || [],
     guesses: mapGuesses(summaryData.guesses?.B)
-  } : null, [summaryData]);
+  }), [summaryData]);
 
-  const mappedTeamB = useMemo(() => summaryData ? {
+  const mappedTeamB = useMemo(() => ({
     prompt: summaryData.prompts?.B,
     strokes: summaryData.strokes?.B || [],
     guesses: mapGuesses(summaryData.guesses?.A)
-  } : null, [summaryData]);
+  }), [summaryData]);
 
-  const totalA = mappedTeamA?.guesses?.length ?? 0;
-  const totalB = mappedTeamB?.guesses?.length ?? 0;
+  const totalA = mappedTeamA.guesses.length;
+  const totalB = mappedTeamB.guesses.length;
   const total = totalA + totalB;
 
   useEffect(() => {
-    if (!summaryData) return;
-
-    setRevealedA(0);
-    setRevealedB(0);
-    setDone(false);
-
     let step = 0;
     const interval = setInterval(() => {
       step++;
 
       if (step <= totalA) {
         setRevealedA(step);
-        const guess = mappedTeamA?.guesses[step - 1];
+        const guess = mappedTeamA.guesses[step - 1];
         sound?.play(guess?.highAccuracy ? 'correct' : 'guess');
       } else if (step <= total) {
         setRevealedB(step - totalA);
-        const guess = mappedTeamB?.guesses[step - totalA - 1];
+        const guess = mappedTeamB.guesses[step - totalA - 1];
         sound?.play(guess?.highAccuracy ? 'correct' : 'guess');
       } else {
         clearInterval(interval);
@@ -143,17 +134,9 @@ export default function SummaryScreen() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [mappedTeamA, mappedTeamB, sound, summaryData, total, totalA]);
+  }, [mappedTeamA, mappedTeamB, sound, total, totalA]);
 
   const globalMessages = messages.filter(m => m.scope === 'global' || m.scope === 'system');
-
-  if (!summaryData) {
-    return (
-      <div className="screen">
-        <p className="muted">Loading summary...</p>
-      </div>
-    );
-  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -194,5 +177,30 @@ export default function SummaryScreen() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SummaryScreen() {
+  const { state, emit } = useGame();
+  const { roomCode, players, myId, summaryData, messages } = state;
+
+  if (!summaryData) {
+    return (
+      <div className="screen">
+        <p className="muted">Loading summary...</p>
+      </div>
+    );
+  }
+
+  return (
+    <SummaryContent
+      key={JSON.stringify(summaryData)}
+      roomCode={roomCode}
+      players={players}
+      myId={myId}
+      summaryData={summaryData}
+      messages={messages}
+      emit={emit}
+    />
   );
 }
